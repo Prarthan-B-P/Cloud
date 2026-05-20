@@ -1,100 +1,79 @@
-# 🎉 Event RSVP – AWS Full-Stack Tutorial
+# RSVP Studio
 
-A simple AWS-powered app that lists events, shows details & stats, and accepts RSVPs.  
+A professional RSVP event management system built with Express.js, AWS RDS MySQL, and AWS S3 poster uploads.
 
-Watch Full Tutorial Here:
+## Stack
 
----
+- Node.js + Express
+- AWS RDS MySQL
+- AWS S3 for event posters
+- JWT auth
+- Tailwind CSS frontend
 
-## 🧱 Architecture Overview
+## Run locally
 
-**Frontend → API Gateway → Lambda → MySQL + DynamoDB → S3 + CloudFront**
+1. Install dependencies:
 
----
-
-## 📁 Project Structure
-
-```
-.
-├── index.html           # Main UI
-├── style.css            # Styling
-├── app.js               # Entry script (loads events)
-├── events.js            # Event logic + modal + RSVP
-├── utils.js             # API helpers & formatters
-├── index.js             # Lambda backend handler
-├── database-notes.txt   # SQL Commands
-├── package.json
-├── package-lock.json
-└── .gitignore
-```
-
-**.gitignore**
-```
-node_modules/
-.DS_Store
-```
-
----
-
-## 🚀 Guide
-
-### Backend (Lambda)
-
-Set these **environment variables** in your Lambda configuration. Feel free to customize:
-
-| Variable | Example | Description |
-|-----------|----------|-------------|
-| REGION | ap-southeast-1 | AWS region |
-| DB_HOST | mydb.xxxxx.ap-southeast-1.rds.amazonaws.com | MySQL host |
-| DB_USER | admin | MySQL user |
-| DB_PASS | ******** | MySQL password |
-| DB_NAME | eventsdb | MySQL database |
-
-**Install dependencies**
 ```bash
 npm install
 ```
 
----
+2. Set environment variables in `.env`:
 
-### API Summary
+```env
+DB_HOST=your-rds-host
+DB_PORT=3306
+DB_USER=your-user
+DB_PASSWORD=your-password
+DB_NAME=your-database
 
-| Method | Path | Purpose |
-|---------|------|----------|
-| GET | `/events` | Fetch all events |
-| GET | `/event/{event_id}` | Fetch single event |
-| GET | `/stats/{event_id}` | Get RSVP counts |
-| GET | `/attendees/{event_id}` | Get attendee list |
-| POST | `/rsvp` | Submit RSVP |
+JWT_SECRET=your-secret
+AWS_REGION=ap-southeast-1
+AWS_S3_BUCKET=your-bucket-name
+AWS_BUCKET_NAME=your-bucket-name
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+S3_PUBLIC_BASE_URL=https://your-bucket-or-cloudfront-url
+```
 
-Make sure **CORS** is set up properly.
+3. Create the schema:
 
----
+```bash
+npm run setup-db
+```
 
-### Hosting (S3 + CloudFront)
+4. Start the app:
 
-1. Upload all frontend files (`index.html`, `.css`, `.js`) to your S3 bucket.  
-2. Create a **CloudFront distribution** pointing to that bucket.  
-3. Set **Default Root Object** to `index.html`.
+```bash
+npm start
+```
 
----
+Open `http://localhost:3000`.
 
-## 🔁 Making Frontend Changes
+## Features
 
-When you update your HTML, CSS, or JS and upload to S3, CloudFront might still serve old cached files.
+- Register and login with JWT auth
+- Host and guest views
+- Full CRUD for events
+- RSVP with yes/no/maybe, guest count, and notes
+- S3 poster upload on event create/update
+- Responsive Tailwind UI
 
-## CloudFront Invalidation (Console)
+## API
 
-1. Go to **CloudFront → your distribution → Invalidations → Create invalidation**  
-2. Enter:
-   ```
-   /*
-   ```
-   This clears the entire cache.
-3. Wait for the status to show **Completed**.  
-4. Go back to your site and **hard refresh**:  
-   - **Windows:** `Ctrl + F5`  
-   - **Mac:** `Cmd + Shift + R`  
-   - *(then refresh ✨)*
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/events`
+- `GET /api/events/mine`
+- `GET /api/events/:id`
+- `POST /api/events`
+- `PUT /api/events/:id`
+- `DELETE /api/events/:id`
+- `POST /api/events/:eventId/rsvps`
+- `GET /api/events/:eventId/rsvps`
+- `GET /api/me/rsvps`
 
----
+## Database schema
+
+See [create-table.js](./create-table.js) for the current schema definition.

@@ -1,5 +1,12 @@
 # Node dependencies
 node_modules/
 
+# Environment and runtime files
+.env
+*.log
+
+# Build output
+frontend/dist/
+
 # OS junk
 .DS_Store

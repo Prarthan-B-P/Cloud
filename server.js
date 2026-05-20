@@ -15,12 +15,13 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const frontendDistPath = path.join(__dirname, 'frontend/dist');
-const frontendPublicPath = path.join(__dirname, 'frontend/public');
-const frontendPath = process.env.NODE_ENV === 'production' ? frontendDistPath : frontendDistPath;
+
+// Use frontend/public folder
+const frontendPath = path.join(__dirname, 'frontend/public');
 
 const app = express();
 
+// Middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
@@ -33,29 +34,32 @@ app.use(rateLimit({
   max: 200
 }));
 
+// Serve static files
 app.use(express.static(frontendPath));
 
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'event-rsvp-api' });
 });
 
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
-app.use('/api', rsvpRoutes);
+app.use('/api/rsvp', rsvpRoutes);
 
-app.get(/^\/(?!api).*/, (req, res) => {
-  res.sendFile(path.join(frontendPath, 'index.html'), (error) => {
-    if (error) {
-      res.sendFile(path.join(frontendPublicPath, 'index.html'));
-    }
-  });
+// Serve frontend for all non-API routes (SPA support)
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
+// Error handling
 app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

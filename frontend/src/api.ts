@@ -53,13 +53,13 @@ export const eventsApi = {
   create: (body: FormData) => apiRequest<{ event: EventItem }>('/api/events', { method: 'POST', body }),
   update: (id: string, body: FormData) => apiRequest<{ event: EventItem }>(`/api/events/${id}`, { method: 'PUT', body }),
   remove: (id: string) => apiRequest<{ message: string }>(`/api/events/${id}`, { method: 'DELETE' }),
-  attendees: (id: string) => apiRequest<{ rsvps: RsvpItem[] }>(`/api/events/${id}/rsvps`)
+  attendees: (id: string) => apiRequest<{ rsvps: RsvpItem[] }>(`/api/rsvp/events/${id}/rsvps`)
 };
 
 export const rsvpApi = {
-  mine: () => apiRequest<{ rsvps: RsvpItem[] }>('/api/me/rsvps'),
+  mine: () => apiRequest<{ rsvps: RsvpItem[] }>('/api/rsvp/me/rsvps'),
   save: (eventId: string, payload: { response: RsvpResponse; guestsCount: number; notes: string }) =>
-    apiRequest<{ rsvp: RsvpItem }>(`/api/events/${eventId}/rsvps`, {
+    apiRequest<{ rsvp: RsvpItem }>(`/api/rsvp/events/${eventId}/rsvps`, {
       method: 'POST',
       body: JSON.stringify(payload)
     })

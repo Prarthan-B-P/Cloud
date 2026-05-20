@@ -1,14 +1,15 @@
 # RSVP Studio
 
-A professional RSVP event management system built with Express.js, AWS RDS MySQL, and AWS S3 poster uploads.
+A professional RSVP event management system built with Express.js, React, AWS RDS MySQL, and AWS S3 poster uploads.
 
 ## Stack
 
 - Node.js + Express
+- React + Vite
 - AWS RDS MySQL
 - AWS S3 for event posters
 - JWT auth
-- Tailwind CSS frontend
+- Custom responsive UI
 
 ## Run locally
 
@@ -42,7 +43,13 @@ S3_PUBLIC_BASE_URL=https://your-bucket-or-cloudfront-url
 npm run setup-db
 ```
 
-4. Start the app:
+4. Build the frontend:
+
+```bash
+npm run build
+```
+
+5. Start the app:
 
 ```bash
 npm start
@@ -57,7 +64,7 @@ Open `http://localhost:3000`.
 - Full CRUD for events
 - RSVP with yes/no/maybe, guest count, and notes
 - S3 poster upload on event create/update
-- Responsive Tailwind UI
+- Responsive React UI
 
 ## API
 
@@ -70,9 +77,16 @@ Open `http://localhost:3000`.
 - `POST /api/events`
 - `PUT /api/events/:id`
 - `DELETE /api/events/:id`
-- `POST /api/events/:eventId/rsvps`
-- `GET /api/events/:eventId/rsvps`
-- `GET /api/me/rsvps`
+- `POST /api/rsvp/events/:eventId/rsvps`
+- `GET /api/rsvp/events/:eventId/rsvps`
+- `GET /api/rsvp/me/rsvps`
+
+## Production Deploy
+
+1. Install dependencies with `npm install`.
+2. Build the frontend with `npm run build`.
+3. Start the server with `npm start`.
+4. Ensure your EC2 instance has the `.env` values for RDS, JWT, and S3.
 
 ## Database schema
 

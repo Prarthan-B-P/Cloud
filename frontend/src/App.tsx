@@ -16,7 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { authApi, clearToken, eventsApi, getToken, rsvpApi, saveToken } from './api';
+import { authApi, clearStoredUser, eventsApi, getStoredUser, rsvpApi, saveStoredUser } from './api';
 import type { AppToast, EventItem, Role, RsvpItem, RsvpResponse, Theme, User, View } from './types';
 import { classNames, fileToDataUrl, formatCount, formatDate, formatDateTime, toDateTimeLocal } from './utils';
 
@@ -104,7 +104,8 @@ function App() {
 
   useEffect(() => {
     const boot = async () => {
-      if (!getToken()) {
+      const stored = getStoredUser();
+      if (!stored) {
         setLoading(false);
         return;
       }
@@ -115,7 +116,7 @@ function App() {
         setView('dashboard');
         await loadData(response.user);
       } catch {
-        clearToken();
+        clearStoredUser();
         setUser(null);
       } finally {
         setLoading(false);
@@ -151,15 +152,14 @@ function App() {
     try {
       const response =
         authMode === 'login'
-          ? await authApi.login(String(form.get('email')), String(form.get('password')))
+          ? await authApi.login(String(form.get('email')))
           : await authApi.register({
               name: String(form.get('name')),
               email: String(form.get('email')),
-              password: String(form.get('password')),
               role: String(form.get('role')) as Role
             });
 
-      saveToken(response.token);
+      saveStoredUser(response.user);
       setUser(response.user);
       setView('dashboard');
       await loadData(response.user);
@@ -172,7 +172,7 @@ function App() {
   };
 
   const logout = () => {
-    clearToken();
+    clearStoredUser();
     setUser(null);
     setEvents([]);
     setMyEvents([]);
@@ -410,7 +410,7 @@ function LandingPage({
         <div className="hero-copy">
           <div className="eyebrow">
             <Sparkles size={16} />
-            AWS RDS + S3 + Express + JWT
+            Express + JSON Storage · No passwords needed
           </div>
           <h1>RSVP Studio</h1>
           <p>
@@ -471,16 +471,12 @@ function AuthPanel({
           Email
           <input name="email" type="email" required placeholder="you@example.com" />
         </label>
-        <label>
-          Password
-          <input name="password" type="password" required minLength={8} placeholder="At least 8 characters" />
-        </label>
         {authMode === 'register' && (
           <label>
             Account type
             <select name="role" defaultValue="host">
-              <option value="host">Host</option>
-              <option value="guest">Guest</option>
+              <option value="host">Host (create events)</option>
+              <option value="guest">Guest (join events)</option>
             </select>
           </label>
         )}

@@ -1,27 +1,22 @@
-import jwt from 'jsonwebtoken';
+import { readJSON } from '../store.js';
 import { AppError } from '../utils/httpError.js';
-import { JWT_SECRET } from '../config/env.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
-export const authenticate = (req, res, next) => {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+export const authenticate = asyncHandler(async (req, res, next) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) throw new AppError('Not authenticated.', 401);
 
-  if (!token) {
-    return next(new AppError('Authentication token is required.', 401));
-  }
+  const users = readJSON('users');
+  const user = users.find((u) => u.id === userId);
+  if (!user) throw new AppError('User not found.', 401);
 
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    return next();
-  } catch (error) {
-    return next(new AppError('Your session has expired. Please sign in again.', 401));
-  }
-};
+  req.user = user;
+  next();
+});
 
 export const requireRole = (...roles) => (req, res, next) => {
   if (!req.user || !roles.includes(req.user.role)) {
     return next(new AppError('You do not have permission to perform this action.', 403));
   }
-
   return next();
 };

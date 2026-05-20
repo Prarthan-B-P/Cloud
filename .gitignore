@@ -10,3 +10,7 @@ frontend/dist/
 
 # OS junk
 .DS_Store
+
+# Local data store (JSON files — don't commit user/event data)
+# Remove this line if you want to commit seed data
+# data/

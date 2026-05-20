@@ -1,90 +1,118 @@
 import { randomUUID } from 'crypto';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { AppError } from '../utils/httpError.js';
-import { validateEventBody } from '../utils/validators.js';
-import { EventModel } from '../models/eventModel.js';
-import { uploadEventPoster } from '../services/s3Service.js';
-
-const ensureEventOwnership = (event, user) => {
-  if (!event) {
-    throw new AppError('Event not found.', 404);
-  }
-
-  if (event.hostId !== user.id) {
-    throw new AppError('You can only manage events you created.', 403);
-  }
-};
+import { readJSON, writeJSON } from '../store.js';
 
 const normalizeCapacity = (capacity) => {
   if (capacity === null || capacity === undefined || capacity === '') return null;
-  const parsed = Number.parseInt(capacity, 10);
-  return Number.isNaN(parsed) ? null : parsed;
+  const parsed = parseInt(capacity, 10);
+  return isNaN(parsed) ? null : parsed;
+};
+
+const enrichEvent = (event, allRsvps, allUsers) => {
+  const eventRsvps = allRsvps.filter((r) => r.eventId === event.id);
+  const host = allUsers.find((u) => u.id === event.hostId);
+  return {
+    ...event,
+    hostName: host?.name || 'Unknown',
+    hostEmail: host?.email,
+    rsvpCount: eventRsvps.length,
+    yesCount: eventRsvps.filter((r) => r.response === 'yes').length,
+    noCount: eventRsvps.filter((r) => r.response === 'no').length,
+    maybeCount: eventRsvps.filter((r) => r.response === 'maybe').length
+  };
 };
 
 export const listEvents = asyncHandler(async (req, res) => {
-  const events = await EventModel.listAll();
-  res.json({ events });
+  const events = readJSON('events');
+  const rsvps = readJSON('rsvps');
+  const users = readJSON('users');
+  res.json({ events: events.map((e) => enrichEvent(e, rsvps, users)) });
 });
 
 export const listMyEvents = asyncHandler(async (req, res) => {
-  const events = await EventModel.listByHost(req.user.id);
-  res.json({ events });
+  const events = readJSON('events').filter((e) => e.hostId === req.user.id);
+  const rsvps = readJSON('rsvps');
+  const users = readJSON('users');
+  res.json({ events: events.map((e) => enrichEvent(e, rsvps, users)) });
 });
 
 export const getEvent = asyncHandler(async (req, res) => {
-  const event = await EventModel.findById(req.params.id);
+  const events = readJSON('events');
+  const event = events.find((e) => e.id === req.params.id);
   if (!event) throw new AppError('Event not found.', 404);
-
-  res.json({ event });
+  const rsvps = readJSON('rsvps');
+  const users = readJSON('users');
+  res.json({ event: enrichEvent(event, rsvps, users) });
 });
 
 export const createEvent = asyncHandler(async (req, res) => {
-  const { value, errors } = validateEventBody(req.body);
-  if (errors.length) throw new AppError('Validation failed.', 400, errors);
+  const { title, description, location, capacity, startAt, endAt } = req.body;
+  if (!title || !startAt || !location) throw new AppError('Title, location and start date are required.', 400);
 
-  const posterUrl = req.file ? await uploadEventPoster(req.file) : value.posterUrl;
+  let posterUrl = null;
+  if (req.file) {
+    const b64 = req.file.buffer.toString('base64');
+    posterUrl = `data:${req.file.mimetype};base64,${b64}`;
+  }
 
-  const event = await EventModel.create({
+  const events = readJSON('events');
+  const event = {
     id: randomUUID(),
     hostId: req.user.id,
-    title: value.title,
-    description: value.description,
-    location: value.location,
-    startAt: value.startAt,
-    endAt: value.endAt,
-    capacity: normalizeCapacity(value.capacity),
-    posterUrl
-  });
+    title, description, location,
+    startAt, endAt: endAt || null,
+    capacity: normalizeCapacity(capacity),
+    posterUrl,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  events.push(event);
+  writeJSON('events', events);
 
-  res.status(201).json({ event });
+  const rsvps = readJSON('rsvps');
+  const users = readJSON('users');
+  res.status(201).json({ event: enrichEvent(event, rsvps, users) });
 });
 
 export const updateEvent = asyncHandler(async (req, res) => {
-  const event = await EventModel.findById(req.params.id);
-  ensureEventOwnership(event, req.user);
+  const events = readJSON('events');
+  const index = events.findIndex((e) => e.id === req.params.id);
+  if (index === -1) throw new AppError('Event not found.', 404);
+  if (events[index].hostId !== req.user.id) throw new AppError('You can only manage events you created.', 403);
 
-  const { value, errors } = validateEventBody(req.body);
-  if (errors.length) throw new AppError('Validation failed.', 400, errors);
+  const { title, description, location, capacity, startAt, endAt } = req.body;
 
-  const posterUrl = req.file ? await uploadEventPoster(req.file) : value.posterUrl;
+  let posterUrl = events[index].posterUrl;
+  if (req.file) {
+    const b64 = req.file.buffer.toString('base64');
+    posterUrl = `data:${req.file.mimetype};base64,${b64}`;
+  }
 
-  const updated = await EventModel.update(req.params.id, {
-    title: value.title,
-    description: value.description,
-    location: value.location,
-    startAt: value.startAt,
-    endAt: value.endAt,
-    capacity: normalizeCapacity(value.capacity),
-    posterUrl: posterUrl || event.posterUrl
-  });
+  events[index] = {
+    ...events[index],
+    title: title || events[index].title,
+    description: description || events[index].description,
+    location: location || events[index].location,
+    capacity: normalizeCapacity(capacity),
+    startAt: startAt || events[index].startAt,
+    endAt: endAt || events[index].endAt,
+    posterUrl,
+    updatedAt: new Date().toISOString()
+  };
+  writeJSON('events', events);
 
-  res.json({ event: updated });
+  const rsvps = readJSON('rsvps');
+  const users = readJSON('users');
+  res.json({ event: enrichEvent(events[index], rsvps, users) });
 });
 
 export const deleteEvent = asyncHandler(async (req, res) => {
-  const event = await EventModel.findById(req.params.id);
-  ensureEventOwnership(event, req.user);
+  let events = readJSON('events');
+  const event = events.find((e) => e.id === req.params.id);
+  if (!event) throw new AppError('Event not found.', 404);
+  if (event.hostId !== req.user.id) throw new AppError('You can only manage events you created.', 403);
 
-  await EventModel.remove(req.params.id);
+  writeJSON('events', events.filter((e) => e.id !== req.params.id));
   res.json({ message: 'Event deleted successfully.' });
 });

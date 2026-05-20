@@ -1,10 +1,17 @@
-import type { EventItem, RsvpItem, RsvpResponse, Role, User } from './types';
+import type { EventItem, Role, RsvpItem, RsvpResponse, User } from './types';
 
-const tokenKey = 'rsvp_token';
+const userKey = 'rsvp_user';
 
-export const getToken = () => localStorage.getItem(tokenKey);
-export const saveToken = (token: string) => localStorage.setItem(tokenKey, token);
-export const clearToken = () => localStorage.removeItem(tokenKey);
+export const getStoredUser = (): User | null => {
+  try { return JSON.parse(localStorage.getItem(userKey) || 'null'); } catch { return null; }
+};
+export const saveStoredUser = (user: User) => localStorage.setItem(userKey, JSON.stringify(user));
+export const clearStoredUser = () => localStorage.removeItem(userKey);
+
+// Keep these as no-ops so existing imports don't break
+export const getToken = () => getStoredUser()?.id ?? null;
+export const saveToken = (_token: string) => {};
+export const clearToken = () => clearStoredUser();
 
 async function readResponse(response: Response) {
   const contentType = response.headers.get('content-type') || '';
@@ -19,8 +26,8 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     headers.set('Content-Type', 'application/json');
   }
 
-  const token = getToken();
-  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const user = getStoredUser();
+  if (user) headers.set('x-user-id', user.id);
 
   const response = await fetch(path, { ...options, headers });
   const data = await readResponse(response);
@@ -34,13 +41,13 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
 }
 
 export const authApi = {
-  login: (email: string, password: string) =>
-    apiRequest<{ token: string; user: User }>('/api/auth/login', {
+  login: (email: string) =>
+    apiRequest<{ user: User }>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email })
     }),
-  register: (payload: { name: string; email: string; password: string; role: Role }) =>
-    apiRequest<{ token: string; user: User }>('/api/auth/register', {
+  register: (payload: { name: string; email: string; role: Role }) =>
+    apiRequest<{ user: User }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload)
     }),

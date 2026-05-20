@@ -1,11 +1,7 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { AppError } from '../utils/httpError.js';
-import { JWT_SECRET } from '../config/env.js';
-import { validateLoginBody, validateRegisterBody } from '../utils/validators.js';
-import { UserModel } from '../models/userModel.js';
+import { readJSON, writeJSON } from '../store.js';
 
 const publicUser = (user) => ({
   id: user.id,
@@ -15,53 +11,34 @@ const publicUser = (user) => ({
   createdAt: user.createdAt
 });
 
-const signToken = (user) => jwt.sign(
-  { id: user.id, name: user.name, email: user.email, role: user.role },
-  JWT_SECRET,
-  { expiresIn: '7d' }
-);
-
 export const register = asyncHandler(async (req, res) => {
-  const { value, errors } = validateRegisterBody(req.body);
-  if (errors.length) throw new AppError('Validation failed.', 400, errors);
+  const { name, email, role = 'guest' } = req.body;
+  if (!name || !email) throw new AppError('Name and email are required.', 400);
+  if (!['host', 'guest'].includes(role)) throw new AppError('Role must be host or guest.', 400);
 
-  const existingUser = await UserModel.findByEmail(value.email);
-  if (existingUser) throw new AppError('That email is already registered.', 409);
+  const users = readJSON('users');
+  if (users.find((u) => u.email === email)) {
+    throw new AppError('That email is already registered.', 409);
+  }
 
-  const passwordHash = await bcrypt.hash(value.password, 10);
-  const user = await UserModel.create({
-    id: randomUUID(),
-    name: value.name,
-    email: value.email,
-    passwordHash,
-    role: value.role
-  });
+  const user = { id: randomUUID(), name, email, role, createdAt: new Date().toISOString() };
+  users.push(user);
+  writeJSON('users', users);
 
-  res.status(201).json({
-    token: signToken(user),
-    user: publicUser(user)
-  });
+  res.status(201).json({ user: publicUser(user) });
 });
 
 export const login = asyncHandler(async (req, res) => {
-  const { value, errors } = validateLoginBody(req.body);
-  if (errors.length) throw new AppError('Validation failed.', 400, errors);
+  const { email } = req.body;
+  if (!email) throw new AppError('Email is required.', 400);
 
-  const user = await UserModel.findByEmail(value.email);
-  if (!user) throw new AppError('Invalid email or password.', 401);
+  const users = readJSON('users');
+  const user = users.find((u) => u.email === email);
+  if (!user) throw new AppError('No account found with that email. Please register first.', 404);
 
-  const passwordMatches = await bcrypt.compare(value.password, user.passwordHash);
-  if (!passwordMatches) throw new AppError('Invalid email or password.', 401);
-
-  res.json({
-    token: signToken(user),
-    user: publicUser(user)
-  });
+  res.json({ user: publicUser(user) });
 });
 
 export const me = asyncHandler(async (req, res) => {
-  const user = await UserModel.findById(req.user.id);
-  if (!user) throw new AppError('User account not found.', 404);
-
-  res.json({ user: publicUser(user) });
+  res.json({ user: publicUser(req.user) });
 });
